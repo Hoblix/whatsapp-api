@@ -1,58 +1,14 @@
-export const META_GRAPH_API_VERSION = "v22.0";
-
-// Stub type for Cloudflare Durable Object — not available on Node.js (will be undefined)
-type DurableObjectNamespace = any;
-
 export interface Env {
-  // Runtime
   NODE_ENV: string;
-
-  // Database
+  PORT?: string;
   DATABASE_URL: string;
-  HYPERDRIVE?: { connectionString: string }; // Cloudflare only — undefined on Node.js
-
-  // Durable Objects — Cloudflare only, undefined on Node.js
-  WEBHOOK_HUB?: DurableObjectNamespace;
-  BOOKING_REMINDER?: DurableObjectNamespace;
-
-  // WhatsApp API
-  WHATSAPP_ACCESS_TOKEN: string;
-  WHATSAPP_PHONE_NUMBER_ID: string;
-  WHATSAPP_WABA_ID: string;
-  WHATSAPP_VERIFY_TOKEN: string;
-  WHATSAPP_APP_SECRET: string;
-
-  // Auth
-  SUPER_ADMIN_PHONE: string;
-
-  // Encryption
-  BACKUP_ENCRYPTION_KEY: string;
-
-  // Push Notifications
-  VAPID_PUBLIC_KEY: string;
-  VAPID_PRIVATE_KEY: string;
-  VAPID_SUBJECT: string;
-
-  // OTP Template
-  OTP_TEMPLATE_NAME: string;
-  OTP_TEMPLATE_LANG: string;
-
-  // Meta Ads API
-  META_ADS_ACCESS_TOKEN: string;
-  META_AD_ACCOUNT_ID: string;
-
-  // Webhook secret for Make.com / external callers
-  MAKE_WEBHOOK_SECRET: string;
-
-  // Config
-  ALLOWED_ORIGINS: string;
+  CREDENTIAL_ENCRYPTION_KEY: string;
+  CORS_ORIGIN?: string;
+  AWS_REGION_NAME?: string;
+  DYNAMODB_TABLE?: string;
+  WS_API_ENDPOINT?: string;
+  WHATSAPP_ACCESS_TOKEN?: string;
+  WHATSAPP_PHONE_NUMBER_ID?: string;
+  WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN?: string;
 }
-
-export type HonoEnv = {
-  Bindings: Env;
-  Variables: {
-    authPhone?: string;
-    adminPhone?: string;
-    clientIp?: string;
-  };
-};
