@@ -1,0 +1,24 @@
+{
+  "name": "@workspace/api-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "catalog:",
+    "hono": "^4.7.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.14.1",
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "@types/node": "catalog:",
+    "vitest": "^4.1.2",
+    "wrangler": "^4.0.0"
+  }
+}
