@@ -4,7 +4,6 @@ import { secureHeaders } from "hono/secure-headers";
 import type { HonoEnv } from "./env";
 import { requireAuth } from "./middleware/requireAuth";
 import { createDb, getDbUrl } from "./lib/db";
-
 import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
 import webhookRoutes from "./routes/webhook";
@@ -23,6 +22,7 @@ import adsRoutes from "./routes/ads";
 import automationsRoutes from "./routes/automations";
 import flowSchemaSyncRoutes from "./routes/flowSchemaSync";
 import templateRoutes from "./routes/templates";
+import credentialRoutes from "./routes/credentials";
 
 const app = new Hono<HonoEnv>();
 
@@ -74,19 +74,24 @@ app.use("/api/*", async (c, next) => {
   await next();
 });
 
-// ── Seed super admin (BACKGROUND — don't block requests) ────────────────────
+// ── Seed super admin (fire-and-forget — don't block requests) ──────────────
 let seeded = false;
 app.use("/api/*", async (c, next) => {
   if (!seeded) {
     seeded = true;
-    // Run seeding in background — don't block the request
-    const { seedSuperAdmin, seedApiKey } = await import("./lib/seedAdmin");
-    c.executionCtx.waitUntil((async () => {
+    const seedFn = async () => {
+      const { seedSuperAdmin, seedApiKey } = await import("./lib/seedAdmin");
       const db = createDb(getDbUrl(c.env));
       const phone = (c.env.SUPER_ADMIN_PHONE ?? "919654677563").replace(/\D/g, "");
       await seedSuperAdmin(db, phone).catch(console.error);
       await seedApiKey(db).catch(console.error);
-    })());
+    };
+    // waitUntil if available (Cloudflare), otherwise fire-and-forget
+    if (c.executionCtx?.waitUntil) {
+      c.executionCtx.waitUntil(seedFn());
+    } else {
+      seedFn().catch(console.error);
+    }
   }
   await next();
 });
@@ -132,12 +137,16 @@ app.route("/api", adsRoutes);
 app.route("/api", automationsRoutes);
 app.route("/api", flowSchemaSyncRoutes);
 app.route("/api", templateRoutes);
-
-import credentialRoutes from "./routes/credentials";
 app.route("/api", credentialRoutes);
 
-// ── WebSocket endpoint — real-time push from webhook to dashboard ────────────
+// ── WebSocket endpoint ──────────────────────────────────────────────────────
+// Cloudflare only: proxies to WEBHOOK_HUB Durable Object.
+// On Node.js (ECS), WebSocket connections are handled by API Gateway separately.
 app.get("/api/ws", (c) => {
+  if (!c.env.WEBHOOK_HUB) {
+    // Running on Node.js — WebSocket handled by API Gateway WebSocket API
+    return c.json({ error: "Connect via wss:// WebSocket endpoint" }, 426);
+  }
   const upgrade = c.req.header("Upgrade");
   if (upgrade !== "websocket") {
     return c.json({ error: "Expected WebSocket upgrade" }, 426);
@@ -147,55 +156,33 @@ app.get("/api/ws", (c) => {
   return stub.fetch(new Request(new URL(c.req.url).origin + "/ws", c.req.raw));
 });
 
-// ── Manual trigger for missed-call notifier (useful for testing without waiting for cron) ──
+// ── Manual trigger for missed-call notifier ─────────────────────────────────
 app.post("/api/jobs/missed-call-notifier/run", async (c) => {
   const { runMissedCallNotifier } = await import("./jobs/missedCallNotifier");
   const result = await runMissedCallNotifier(c.env as any);
   return c.json(result);
 });
 
-// ── Webhook: Notion → missed-call notifier ───────────────────────────────────
-// Accepts a page_id and fires the template. Designed for Notion automation OR
-// Notion button property (both can POST to a URL). No Zapier/Make needed.
-//
-// Notion automation payload shape:   { "source": {...}, "data": { "id": "..." } }
-// Notion button payload shape:       { "page": { "id": "..." } }
-// Simple shape:                       { "page_id": "..." }
+// ── Webhook: Notion → missed-call notifier ──────────────────────────────────
 app.post("/api/webhooks/notion/missed-call", async (c) => {
-  // Verify shared secret (rejects unauthorised callers)
   const provided = c.req.header("x-webhook-secret");
   const expected = (c.env as any).MAKE_WEBHOOK_SECRET;
   if (!expected || !provided || provided !== expected) {
     return c.json({ error: "Unauthorized" }, 401);
   }
-
   let body: any = {};
   try { body = await c.req.json(); } catch {}
-
-  const pageId =
-    body?.page_id ??
-    body?.pageId ??
-    body?.data?.id ??
-    body?.page?.id ??
-    body?.id ??
-    null;
-
+  const pageId = body?.page_id ?? body?.pageId ?? body?.data?.id ?? body?.page?.id ?? body?.id ?? null;
   if (!pageId) {
     return c.json({ ok: false, error: "page_id required", received: body }, 400);
   }
-
   const { notifyForSinglePage } = await import("./jobs/missedCallNotifier");
   const result = await notifyForSinglePage(c.env as any, String(pageId));
   return c.json(result, result.ok ? 200 : 400);
 });
 
-// ── Export ───────────────────────────────────────────────────────────────────
-export { WebhookHub } from "./lib/webhookHub";
-export { BookingReminder } from "./lib/bookingReminder";
-
-export default {
-  fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: any, ctx: ExecutionContext) {
-    console.log("Cron triggered:", event.cron);
-  },
-};
+// ── Export ─────────────────────────────────────────────────────────────────
+// Default export is the Hono app.
+// src/server.ts wraps this with @hono/node-server for ECS.
+// Cloudflare Workers: wrangler uses app.fetch directly.
+export default app;
