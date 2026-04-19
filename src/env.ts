@@ -1,18 +1,19 @@
 export const META_GRAPH_API_VERSION = "v22.0";
 
+// Stub type for Cloudflare Durable Object — not available on Node.js (will be undefined)
+type DurableObjectNamespace = any;
+
 export interface Env {
-  // Cloudflare vars
+  // Runtime
   NODE_ENV: string;
 
   // Database
   DATABASE_URL: string;
-  HYPERDRIVE: { connectionString: string };
+  HYPERDRIVE?: { connectionString: string }; // Cloudflare only — undefined on Node.js
 
-  // Durable Object: WebSocket hub for real-time push to dashboard
-  WEBHOOK_HUB: DurableObjectNamespace;
-
-  // Durable Object: Scheduled reminders (alarm per booking)
-  BOOKING_REMINDER: DurableObjectNamespace;
+  // Durable Objects — Cloudflare only, undefined on Node.js
+  WEBHOOK_HUB?: DurableObjectNamespace;
+  BOOKING_REMINDER?: DurableObjectNamespace;
 
   // WhatsApp API
   WHATSAPP_ACCESS_TOKEN: string;
