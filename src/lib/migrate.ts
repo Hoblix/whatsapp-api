@@ -13,7 +13,7 @@ export async function runMigrations(): Promise<void> {
   });
 
   try {
-    console.log("🔄 Running DB migrations...");
+    console.log("Running DB migrations...");
 
     await sql`
       CREATE TABLE IF NOT EXISTS allowed_users (
@@ -104,20 +104,20 @@ export async function runMigrations(): Promise<void> {
       )
     `;
 
-    // Seed super admin from env if provided
-    const superAdminPhone = process.env.SUPER_ADMIN_PHONE;
-    if (superAdminPhone) {
-      const digits = superAdminPhone.replace(/\D/g, "");
-      const normalized = digits.length === 10 ? `91${digits}` : digits;
+    // Seed super admin — use env var, fall back to hardcoded default
+    const rawPhone = process.env.SUPER_ADMIN_PHONE || "919654677563";
+    const digits = rawPhone.replace(/\D/g, "");
+    const normalized = digits.length === 10 ? `91${digits}` : digits;
+    if (normalized.length >= 7) {
       await sql`
         INSERT INTO allowed_users (phone_number, role)
         VALUES (${normalized}, 'super_admin')
         ON CONFLICT (phone_number) DO NOTHING
       `;
-      console.log(`✅ Super admin seeded: ${normalized}`);
+      console.log(`Super admin seeded: ${normalized}`);
     }
 
-    console.log("✅ DB migrations complete");
+    console.log("DB migrations complete");
   } finally {
     await sql.end();
   }
