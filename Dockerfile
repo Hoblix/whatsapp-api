@@ -10,6 +10,7 @@ RUN npm ci 2>/dev/null || npm install
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+RUN apk add --no-cache curl
 
 # Copy installed node_modules from build stage
 COPY --from=deps /app/node_modules ./node_modules
