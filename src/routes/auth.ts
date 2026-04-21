@@ -63,7 +63,7 @@ app.post("/send-otp", async (c) => {
     return c.json({ error: "Invalid phone number" }, 400);
   }
 
-  const phone = rawPhone.length === 10 ? a91${rawPhone}` : rawPhone;
+  const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
 
   const [allowed] = await db
     .select()
